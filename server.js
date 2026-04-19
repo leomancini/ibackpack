@@ -17,10 +17,41 @@ const anthropic = new Anthropic();
 const db = new Database(join(__dirname, "data.sqlite"));
 db.pragma("journal_mode = WAL");
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 // Serve static files from dist
 app.use(express.static(join(__dirname, "dist")));
+
+app.post("/api/describe", async (req, res) => {
+  try {
+    const { image } = req.body;
+    if (!image) return res.status(400).json({ error: "missing image" });
+
+    const match = image.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!match) return res.status(400).json({ error: "invalid image data" });
+    const [, mediaType, data] = match;
+
+    const message = await anthropic.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 200,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data } },
+            { type: "text", text: "Describe what's in this image in one short sentence." },
+          ],
+        },
+      ],
+    });
+
+    const text = message.content.find((b) => b.type === "text")?.text ?? "";
+    res.json({ description: text });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // API endpoint for SQLite queries
 app.post("/api/query", (req, res) => {
