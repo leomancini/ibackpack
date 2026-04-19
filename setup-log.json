@@ -1,0 +1,10 @@
+{
+  "app_id": "ibackpack",
+  "app_name": "iBackpack",
+  "domain": "https://ibackpack.leo.gd",
+  "host": "localhost",
+  "port": "3132",
+  "author": "leo",
+  "anthropic": true,
+  "created_on": "Sun Apr 19 01:41:10 PM EDT 2026"
+}
