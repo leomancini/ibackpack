@@ -23,6 +23,8 @@ const Overlay = styled.div`
   align-items: center;
   padding: 32px 96px;
   color: #fff;
+  font-family: "Playfair Display", "DejaVu Serif", "Liberation Serif", Georgia, serif;
+  font-weight: 500;
   font-size: 48px;
   line-height: 1.3;
   text-align: center;
@@ -85,7 +87,7 @@ function App() {
       canvas.height = h;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, w, h);
-      const image = canvas.toDataURL("image/jpeg", 0.7);
+      const image = canvas.toDataURL("image/jpeg", 0.5);
 
       try {
         const res = await fetch("/api/describe", {
@@ -101,7 +103,7 @@ function App() {
         // ignore transient errors
       }
 
-      if (!cancelled) timer = setTimeout(capture, 3000);
+      if (!cancelled) timer = setTimeout(capture, 1000);
     };
 
     timer = setTimeout(capture, 1500);

@@ -39,13 +39,17 @@ app.post("/api/describe", async (req, res) => {
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: mediaType, data } },
-            { type: "text", text: "Describe what's in this image in one short sentence." },
+            {
+              type: "text",
+              text: "You are a camera mounted on a backpack, looking out at the world. Describe what you see around you in one short sentence. Respond with plain prose only — no markdown, no headings, no hashtags, no bullet points, no leading punctuation.",
+            },
           ],
         },
       ],
     });
 
-    const text = message.content.find((b) => b.type === "text")?.text ?? "";
+    const raw = message.content.find((b) => b.type === "text")?.text ?? "";
+    const text = raw.replace(/^[#\s*>`-]+/, "").trim();
     res.json({ description: text });
   } catch (error) {
     console.error(error);
