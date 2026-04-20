@@ -7,13 +7,13 @@
 <title>iBackpack Gallery</title>
 <style>
   :root {
-    --bg: #0b0d10;
-    --surface: #141820;
-    --surface-2: #1c2230;
-    --border: #242b3a;
-    --text: #e8ecf2;
-    --muted: #8a94a6;
-    --accent: #6ea8ff;
+    --bg: #0c0c0c;
+    --surface: #161616;
+    --surface-2: #1f1f1f;
+    --border: #2a2a2a;
+    --text: #ececec;
+    --muted: #8a8a8a;
+    --accent: #bdbdbd;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
@@ -37,21 +37,9 @@
   h1 { font-size: 17px; margin: 0; font-weight: 600; letter-spacing: 0.2px; }
   .meta { font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
   .live {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 3px 8px; border-radius: 999px;
+    display: inline-flex; align-items: center;
+    padding: 3px 10px; border-radius: 999px;
     background: var(--surface-2); border: 1px solid var(--border);
-  }
-  .dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: #4caf50;
-    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.6);
-    animation: pulse 1.8s ease-out infinite;
-  }
-  .dot.off { background: #888; animation: none; }
-  @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.55); }
-    70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
   }
   main {
     max-width: 900px;
@@ -69,7 +57,6 @@
   }
   .card {
     background: var(--surface);
-    border: 1px solid var(--border);
     border-radius: 24px;
     overflow: hidden;
     display: flex;
@@ -87,22 +74,21 @@
     background: #000;
     aspect-ratio: 4/3;
     object-fit: cover;
+    filter: grayscale(1);
   }
-  .body { padding: 12px 14px 14px; }
-  .ts {
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    margin-bottom: 6px;
-  }
+  .body { padding: 18px 20px 20px; }
   .response {
-    font-size: 14px;
+    font-size: 18px;
     line-height: 1.5;
     color: var(--text);
     white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: anywhere;
+  }
+  .ts {
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--muted);
   }
   .prompt {
     margin-top: 8px;
@@ -127,7 +113,7 @@
   <h1>iBackpack Gallery</h1>
   <div class="meta">
     <span class="bytes" id="storage">—</span>
-    <span class="live"><span class="dot" id="dot"></span><span id="status">connecting</span></span>
+    <span class="live" id="status">connecting</span>
   </div>
 </header>
 <main>
@@ -142,7 +128,6 @@
   var grid = document.getElementById("grid");
   var empty = document.getElementById("empty");
   var statusEl = document.getElementById("status");
-  var dotEl = document.getElementById("dot");
   var storageEl = document.getElementById("storage");
   var seen = new Set();
 
@@ -174,8 +159,8 @@
     card.innerHTML =
       '<img loading="lazy" src="' + imgUrl + '" alt="" />' +
       '<div class="body">' +
-        '<div class="ts">' + esc(fmtTime(e.created_at)) + "</div>" +
         '<div class="response">' + esc(e.response_text) + "</div>" +
+        '<div class="ts">' + esc(fmtTime(e.created_at)) + "</div>" +
       "</div>";
     return card;
   }
@@ -207,9 +192,8 @@
     storageEl.textContent = fmtBytes(total) + " / " + fmtBytes(max);
   }
 
-  function setStatus(s, online) {
+  function setStatus(s) {
     statusEl.textContent = s;
-    dotEl.classList.toggle("off", !online);
   }
 
   function load() {
@@ -223,15 +207,15 @@
         updateStorage(data.total_bytes, data.max_bytes);
       })
       .catch(function (err) {
-        setStatus("load failed", false);
+        setStatus("load failed");
         console.error(err);
       });
   }
 
   function connect() {
     var es = new EventSource("/admin/gallery/events?key=" + encodeURIComponent(key));
-    es.addEventListener("open", function () { setStatus("live", true); });
-    es.addEventListener("error", function () { setStatus("reconnecting", false); });
+    es.addEventListener("open", function () { setStatus("live"); });
+    es.addEventListener("error", function () { setStatus("reconnecting"); });
     es.addEventListener("add", function (ev) {
       try {
         var data = JSON.parse(ev.data);

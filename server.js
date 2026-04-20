@@ -1,4 +1,5 @@
-import 'dotenv/config';
+import dotenv from "dotenv";
+dotenv.config({ override: true });
 import Anthropic from "@anthropic-ai/sdk";
 import express from "express";
 import Database from "better-sqlite3";
