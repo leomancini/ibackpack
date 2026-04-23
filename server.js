@@ -4,6 +4,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import express from "express";
 import Database from "better-sqlite3";
 import fs from "fs";
+import http from "http";
+import { WebSocketServer } from "ws";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { createStorage } from "./lib/storage.js";
@@ -219,6 +221,7 @@ app.get("/api/describe/events", (req, res) => {
 });
 
 app.post("/api/describe", async (req, res) => {
+  let started = false;
   try {
     const { image } = req.body;
     if (!image) return res.status(400).json({ error: "missing image" });
@@ -227,13 +230,16 @@ app.post("/api/describe", async (req, res) => {
     if (!match) return res.status(400).json({ error: "invalid image data" });
     const [, mediaType, data] = match;
 
+    startDescribe();
+    started = true;
+
     const model = "claude-haiku-4-5";
     const prompt =
-      "You are a camera mounted on a backpack, looking out at the world. Describe what you see around you in one short sentence. Respond with plain prose only — no markdown, no headings, no hashtags, no bullet points, no leading punctuation.";
+      "You are a camera mounted on a backpack, looking out at the world. Describe what you see around you in one short sentence (around 15 words). Respond with plain prose only — no markdown, no headings, no hashtags, no bullet points, no leading punctuation.";
 
     const message = await anthropic.messages.create({
       model,
-      max_tokens: 200,
+      max_tokens: 120,
       messages: [
         {
           role: "user",
@@ -269,9 +275,11 @@ app.post("/api/describe", async (req, res) => {
       lng: loc?.lng ?? null
     };
     broadcastDescribe(latestDescribe);
+    finishDescribe();
 
     res.json({ description: text });
   } catch (error) {
+    if (started) finishDescribe();
     console.error(error);
     res.status(500).json({ error: error.message });
   }
@@ -367,6 +375,46 @@ app.get("*", (req, res) => {
   res.sendFile(join(__dirname, "dist", "index.html"));
 });
 
-app.listen(port, () => {
+const DESCRIBE_INTERVAL_MS = 5000;
+const describeSockets = new Set();
+let describeStatus = { sending: false, nextSendAt: 0, lastSendAt: 0 };
+
+function broadcastDescribeStatus() {
+  const msg = JSON.stringify({ type: "status", ...describeStatus });
+  for (const ws of describeSockets) {
+    try {
+      if (ws.readyState === ws.OPEN) ws.send(msg);
+    } catch {}
+  }
+}
+
+function startDescribe() {
+  describeStatus = { ...describeStatus, sending: true };
+  broadcastDescribeStatus();
+}
+
+function finishDescribe() {
+  const now = Date.now();
+  describeStatus = {
+    sending: false,
+    lastSendAt: now,
+    nextSendAt: now + DESCRIBE_INTERVAL_MS
+  };
+  broadcastDescribeStatus();
+}
+
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: "/ws/describe" });
+
+wss.on("connection", (ws) => {
+  describeSockets.add(ws);
+  try {
+    ws.send(JSON.stringify({ type: "status", ...describeStatus }));
+  } catch {}
+  ws.on("close", () => describeSockets.delete(ws));
+  ws.on("error", () => describeSockets.delete(ws));
+});
+
+server.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });

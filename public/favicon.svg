@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <filter id="gs">
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+  <rect width="64" height="64" fill="#4a4a4a"/>
+  <text x="32" y="50" font-size="46" text-anchor="middle" filter="url(#gs)">🎒</text>
+</svg>

@@ -7,6 +7,7 @@ export default defineConfig({
     proxy: {
       "/api": "http://localhost:3132",
       "/admin": "http://localhost:3132",
+      "/ws": { target: "ws://localhost:3132", ws: true },
     },
   },
 });

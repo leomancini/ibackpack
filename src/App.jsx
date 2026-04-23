@@ -99,6 +99,67 @@ function useDescribe() {
   return entry;
 }
 
+function useDescribeStatus() {
+  const [status, setStatus] = useState({
+    sending: false,
+    nextSendAt: 0,
+    lastSendAt: 0,
+    connected: false,
+  });
+  useEffect(() => {
+    let ws;
+    let cancelled = false;
+    let reconnectTimer;
+
+    const connect = () => {
+      if (cancelled) return;
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      ws = new WebSocket(`${proto}//${window.location.host}/ws/describe`);
+      ws.onopen = () =>
+        setStatus((s) => ({ ...s, connected: true }));
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === "status") {
+            setStatus({
+              sending: !!data.sending,
+              nextSendAt: data.nextSendAt || 0,
+              lastSendAt: data.lastSendAt || 0,
+              connected: true,
+            });
+          }
+        } catch {}
+      };
+      ws.onclose = () => {
+        setStatus((s) => ({ ...s, connected: false }));
+        if (!cancelled) reconnectTimer = setTimeout(connect, 1500);
+      };
+      ws.onerror = () => {
+        try { ws.close(); } catch {}
+      };
+    };
+
+    connect();
+    return () => {
+      cancelled = true;
+      clearTimeout(reconnectTimer);
+      try { ws && ws.close(); } catch {}
+    };
+  }, []);
+  return status;
+}
+
+function useCountdown(targetMs) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!targetMs) return;
+    const id = setInterval(() => tick((n) => n + 1), 100);
+    return () => clearInterval(id);
+  }, [targetMs]);
+  const remaining = targetMs ? Math.max(0, targetMs - Date.now()) : 0;
+  return remaining;
+}
+
 function Home() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -184,7 +245,7 @@ function Home() {
         // ignore transient errors
       }
 
-      if (!cancelled) timer = setTimeout(capture, 1000);
+      if (!cancelled) timer = setTimeout(capture, 5000);
     };
 
     timer = setTimeout(capture, 1500);
@@ -261,7 +322,10 @@ const RemotePage = styled.div`
   background: #111;
   color: #fff;
   font-family: system-ui, -apple-system, sans-serif;
-  padding: 20px;
+  padding: calc(20px + env(safe-area-inset-top))
+    calc(20px + env(safe-area-inset-right))
+    calc(20px + env(safe-area-inset-bottom))
+    calc(20px + env(safe-area-inset-left));
   box-sizing: border-box;
 `;
 
@@ -388,23 +452,61 @@ const StatusDot = styled.div`
       : `0 0 16px ${p.$paused ? "#ef4444" : "#22c55e"}`};
 `;
 
-const StatusRow = styled.div`
+const SendBadge = styled.div`
   position: absolute;
   top: 12px;
-  left: 12px;
+  right: 12px;
   z-index: 2;
+  height: 28px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 14px 6px 10px;
+  gap: 8px;
+  padding: 0 12px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(6px);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fff;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+`;
+
+const SendDot = styled.div`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: ${(p) => (p.$sending ? "#22c55e" : "#777")};
+  box-shadow: ${(p) => (p.$sending ? "0 0 10px #22c55e" : "none")};
+  animation: ${(p) => (p.$sending ? "pulse 1s ease-in-out infinite" : "none")};
+  @keyframes pulse {
+    50% { opacity: 0.4; }
+  }
+`;
+
+const StatusRow = styled.div`
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 0 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  box-sizing: border-box;
 `;
 
 const LevelRow = styled.div`
@@ -497,6 +599,10 @@ function Remote() {
   const { paused, brightness, homeConnected } = useControlState();
   const describe = useDescribe();
   const location = useGeolocation();
+  const describeStatus = useDescribeStatus();
+  const remainingMs = useCountdown(
+    describeStatus.sending ? 0 : describeStatus.nextSendAt
+  );
   const [busy, setBusy] = useState(false);
 
   const setDarkness = async (value) => {
@@ -530,7 +636,6 @@ function Remote() {
   let statusLabel;
   if (!homeConnected) statusLabel = "Not connected";
   else if (paused) statusLabel = "Paused";
-  else if (brightness < 100) statusLabel = `${brightness}%`;
   else statusLabel = "Live";
 
   return (
@@ -547,6 +652,15 @@ function Remote() {
           <StatusDot $paused={paused} $disconnected={!homeConnected} />
           {statusLabel}
         </StatusRow>
+        {homeConnected && !paused && (
+          <SendBadge>
+            {describeStatus.sending
+              ? "Sending"
+              : describeStatus.nextSendAt
+              ? `${(remainingMs / 1000).toFixed(1)}s`
+              : "—"}
+          </SendBadge>
+        )}
       </StreamFrame>
       <PhotoRow>
         {describe?.image ? (
