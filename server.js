@@ -38,15 +38,21 @@ app.use(express.json({ limit: "25mb" }));
 app.use(express.static(join(__dirname, "dist")));
 
 const controlClients = new Set();
-let controlState = { paused: false };
+let controlState = { paused: false, brightness: 100 };
 let homeLastSeen = 0;
+
+const BRIGHTNESS_LEVELS = [0, 50, 100];
 
 function isHomeConnected() {
   return Date.now() - homeLastSeen < 3000;
 }
 
 function currentControlState() {
-  return { paused: controlState.paused, homeConnected: isHomeConnected() };
+  return {
+    paused: controlState.paused,
+    brightness: controlState.brightness,
+    homeConnected: isHomeConnected(),
+  };
 }
 
 function broadcastControl(event, data) {
@@ -158,6 +164,16 @@ app.post(
     res.json({ ok: true, viewers: mjpegClients.size });
   }
 );
+
+app.post("/api/control/brightness", (req, res) => {
+  const { value } = req.body || {};
+  if (!BRIGHTNESS_LEVELS.includes(value)) {
+    return res.status(400).json({ error: "invalid brightness value" });
+  }
+  controlState = { ...controlState, brightness: value };
+  broadcastControl("state", currentControlState());
+  res.json({ ok: true, state: currentControlState(), receivers: controlClients.size });
+});
 
 app.post("/api/control/command", (req, res) => {
   const { action } = req.body || {};

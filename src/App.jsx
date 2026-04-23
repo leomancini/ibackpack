@@ -14,7 +14,7 @@ const Video = styled.video`
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  filter: ${(p) => (p.$paused ? "brightness(0)" : "brightness(0.7)")};
+  filter: brightness(${(p) => (p.$paused ? 0 : p.$brightness / 100)});
   transition: filter 0.2s ease;
 `;
 
@@ -26,8 +26,8 @@ const Overlay = styled.div`
   color: #fff;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   font-weight: 600;
-  font-size: 40px;
-  line-height: 1.3;
+  font-size: 64px;
+  line-height: 1.25;
   text-align: left;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
   pointer-events: none;
@@ -63,6 +63,7 @@ const PausedBadge = styled.div`
 function useControlState() {
   const [state, setState] = useState({
     paused: false,
+    brightness: 100,
     homeConnected: false,
     loaded: false,
   });
@@ -73,6 +74,7 @@ function useControlState() {
         const data = JSON.parse(e.data);
         setState({
           paused: !!data.paused,
+          brightness: typeof data.brightness === "number" ? data.brightness : 100,
           homeConnected: !!data.homeConnected,
           loaded: true,
         });
@@ -104,7 +106,7 @@ function Home() {
   const pausedRef = useRef(false);
   const [error, setError] = useState(null);
   const [description, setDescription] = useState("");
-  const { paused, loaded } = useControlState();
+  const { paused, brightness, loaded } = useControlState();
 
   useEffect(() => {
     const send = () => {
@@ -240,7 +242,7 @@ function Home() {
 
   return (
     <Page>
-      <Video ref={videoRef} playsInline muted $paused={paused} />
+      <Video ref={videoRef} playsInline muted $paused={paused} $brightness={brightness} />
       <canvas ref={canvasRef} style={{ display: "none" }} />
       <canvas ref={streamCanvasRef} style={{ display: "none" }} />
       {!paused && description && <Overlay>{description}</Overlay>}
@@ -405,6 +407,14 @@ const StatusRow = styled.div`
   color: #fff;
 `;
 
+const LevelRow = styled.div`
+  width: min(90vw, 520px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  flex-shrink: 0;
+`;
+
 const ToggleButton = styled.button`
   width: min(90vw, 520px);
   height: 64px;
@@ -440,6 +450,27 @@ const PauseIcon = () => (
   </svg>
 );
 
+const LevelButton = styled.button`
+  height: 64px;
+  border-radius: 20px;
+  border: none;
+  background: ${(p) => (p.$active ? "#fff" : "#2a2a2a")};
+  color: ${(p) => (p.$active ? "#000" : "#eee")};
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s ease, opacity 0.2s ease, background 0.15s ease,
+    color 0.15s ease;
+  &:active {
+    transform: scale(0.96);
+  }
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+`;
+
 function useGeolocation() {
   const [location, setLocation] = useState(null);
   useEffect(() => {
@@ -463,10 +494,24 @@ function useGeolocation() {
 }
 
 function Remote() {
-  const { paused, homeConnected } = useControlState();
+  const { paused, brightness, homeConnected } = useControlState();
   const describe = useDescribe();
   const location = useGeolocation();
   const [busy, setBusy] = useState(false);
+
+  const setDarkness = async (value) => {
+    if (busy || !homeConnected) return;
+    setBusy(true);
+    try {
+      await fetch("/api/control/brightness", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value }),
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const toggle = async () => {
     if (busy || !homeConnected) return;
@@ -485,13 +530,18 @@ function Remote() {
   let statusLabel;
   if (!homeConnected) statusLabel = "Not connected";
   else if (paused) statusLabel = "Paused";
+  else if (brightness < 100) statusLabel = `${brightness}%`;
   else statusLabel = "Live";
 
   return (
     <RemotePage>
       <StreamFrame>
         {homeConnected && (
-          <StreamImg src="/api/stream.mjpeg" alt="Live feed" $paused={paused} />
+          <StreamImg
+            src="/api/stream.mjpeg"
+            alt="Live feed"
+            $paused={paused}
+          />
         )}
         <StatusRow>
           <StatusDot $paused={paused} $disconnected={!homeConnected} />
@@ -522,6 +572,19 @@ function Remote() {
       <ResponseCard>
         <HaikuText>{describe?.description || ""}</HaikuText>
       </ResponseCard>
+      <LevelRow>
+        {[0, 50, 100].map((v) => (
+          <LevelButton
+            key={v}
+            $value={v}
+            $active={brightness === v}
+            disabled={!homeConnected}
+            onClick={() => setDarkness(v)}
+          >
+            {v}%
+          </LevelButton>
+        ))}
+      </LevelRow>
       <ToggleButton
         $paused={paused}
         onClick={toggle}
