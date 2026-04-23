@@ -335,7 +335,7 @@ const RemotePage = styled.div`
   color: #fff;
   font-family: system-ui, -apple-system, sans-serif;
   padding: calc(20px + env(safe-area-inset-top))
-    calc(20px + env(safe-area-inset-right)) 20px
+    calc(20px + env(safe-area-inset-right)) 0
     calc(20px + env(safe-area-inset-left));
   box-sizing: border-box;
   overflow: hidden;
@@ -371,7 +371,7 @@ const PhotoRow = styled.div`
   width: min(90vw, 520px);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 16px;
   flex-shrink: 0;
 `;
 
@@ -533,7 +533,7 @@ const LevelRow = styled.div`
   width: min(90vw, 520px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 16px;
   flex-shrink: 0;
 `;
 
