@@ -323,8 +323,11 @@ app.get("/gallery", requireAdminKey, (req, res) => {
 app.get("/gallery/api/entries", requireAdminKey, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit, 10) || 200, 500);
   const offset = parseInt(req.query.offset, 10) || 0;
+  const beforeRaw = req.query.before;
+  const before = beforeRaw != null ? parseInt(beforeRaw, 10) : null;
+  const opts = Number.isFinite(before) ? { limit, before } : { limit, offset };
   res.json({
-    entries: storage.listEntries({ limit, offset }),
+    entries: storage.listEntries(opts),
     total_bytes: storage.getTotalBytes(),
     max_bytes: storage.maxBytes
   });

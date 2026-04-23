@@ -22,31 +22,6 @@
     -webkit-font-smoothing: antialiased;
     min-height: 100dvh;
   }
-  header {
-    position: sticky; top: 0; z-index: 10;
-    background: rgba(11, 13, 16, 0.85);
-    backdrop-filter: saturate(140%) blur(10px);
-    -webkit-backdrop-filter: saturate(140%) blur(10px);
-    padding: 14px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding-top: max(14px, env(safe-area-inset-top));
-  }
-  h1 {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-    font-size: 14px; margin: 0; font-weight: 700; letter-spacing: 0.2px;
-  }
-  .meta {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-    font-size: 12px; color: var(--muted); display: flex; gap: 10px; align-items: center;
-  }
-  .live {
-    display: inline-flex; align-items: center;
-    padding: 3px 10px; border-radius: 999px;
-    background: var(--surface-2); border: 1px solid var(--border);
-  }
   main {
     width: 100%;
     margin: 0;
@@ -130,14 +105,9 @@
 </style>
 </head>
 <body>
-<header>
-  <h1>iBackpack Gallery</h1>
-  <div class="meta">
-    <span class="bytes" id="storage">—</span>
-  </div>
-</header>
 <main>
   <div class="grid" id="grid"></div>
+  <div id="sentinel" style="height: 1px;"></div>
   <div class="empty" id="empty" hidden>No entries yet. Send an image to Claude to get started.</div>
 </main>
 <script>
@@ -148,7 +118,7 @@
   var grid = document.getElementById("grid");
   var empty = document.getElementById("empty");
   var statusEl = document.getElementById("status");
-  var storageEl = document.getElementById("storage");
+  var storageEl = null;
   var seen = new Set();
 
   function fmtBytes(n) {
@@ -216,27 +186,73 @@
   }
 
   function updateStorage(total, max) {
-    storageEl.textContent = fmtBytes(total) + " / " + fmtBytes(max);
+    document.title = "Gallery — " + fmtBytes(total) + " / " + fmtBytes(max);
   }
 
   function setStatus(s) {
     if (statusEl) statusEl.textContent = s;
   }
 
-  function load() {
-    fetch("/gallery/api/entries?key=" + encodeURIComponent(key))
+  var PAGE_SIZE = 50;
+  var oldestLoaded = null;
+  var loading = false;
+  var exhausted = false;
+
+  function loadPage() {
+    if (loading || exhausted) return;
+    loading = true;
+    var url = "/gallery/api/entries?limit=" + PAGE_SIZE + "&key=" + encodeURIComponent(key);
+    if (oldestLoaded != null) url += "&before=" + oldestLoaded;
+    fetch(url)
       .then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
       .then(function (data) {
-        (data.entries || []).forEach(function (e) { addEntry(e, false); });
+        var entries = data.entries || [];
+        entries.forEach(function (e) {
+          addEntry(e, false);
+          if (oldestLoaded == null || e.created_at < oldestLoaded) {
+            oldestLoaded = e.created_at;
+          }
+        });
         updateStorage(data.total_bytes, data.max_bytes);
+        if (entries.length < PAGE_SIZE) exhausted = true;
       })
       .catch(function (err) {
         setStatus("load failed");
         console.error(err);
+      })
+      .finally(function () {
+        loading = false;
+        maybeLoadMore();
       });
+  }
+
+  function maybeLoadMore() {
+    if (loading || exhausted) return;
+    var sentinel = document.getElementById("sentinel");
+    if (!sentinel) return;
+    var rect = sentinel.getBoundingClientRect();
+    if (rect.top < (window.innerHeight || document.documentElement.clientHeight) + 400) {
+      loadPage();
+    }
+  }
+
+  function observeSentinel() {
+    var sentinel = document.getElementById("sentinel");
+    if (!sentinel) return;
+    if ("IntersectionObserver" in window) {
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) loadPage();
+        });
+      }, { rootMargin: "400px 0px" });
+      io.observe(sentinel);
+    } else {
+      window.addEventListener("scroll", maybeLoadMore, { passive: true });
+      window.addEventListener("resize", maybeLoadMore);
+    }
   }
 
   function connect() {
@@ -260,7 +276,8 @@
     es.addEventListener("ping", function () {});
   }
 
-  load();
+  observeSentinel();
+  loadPage();
   connect();
 })();
 </script>
