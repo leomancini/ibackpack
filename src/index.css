@@ -13,7 +13,7 @@ body,
   width: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  background: #111;
+  background: #000;
 }
 
 body {

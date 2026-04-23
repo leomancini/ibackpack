@@ -4,6 +4,5 @@
       <feColorMatrix type="saturate" values="0"/>
     </filter>
   </defs>
-  <rect width="64" height="64" fill="#4a4a4a"/>
-  <text x="32" y="50" font-size="46" text-anchor="middle" filter="url(#gs)">🎒</text>
+  <text x="32" y="54" font-size="64" text-anchor="middle" filter="url(#gs)">🎒</text>
 </svg>

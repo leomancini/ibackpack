@@ -331,12 +331,11 @@ const RemotePage = styled.div`
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  background: #111;
+  background: #000;
   color: #fff;
   font-family: system-ui, -apple-system, sans-serif;
   padding: calc(20px + env(safe-area-inset-top))
-    calc(20px + env(safe-area-inset-right))
-    calc(20px + env(safe-area-inset-bottom))
+    calc(20px + env(safe-area-inset-right)) 20px
     calc(20px + env(safe-area-inset-left));
   box-sizing: border-box;
   overflow: hidden;
