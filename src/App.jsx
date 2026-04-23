@@ -381,11 +381,11 @@ const StatusDot = styled.div`
   height: 12px;
   border-radius: 50%;
   background: ${(p) =>
-    p.$disconnected ? "#555" : p.$paused ? "#f59e0b" : "#22c55e"};
+    p.$disconnected ? "#555" : p.$paused ? "#ef4444" : "#22c55e"};
   box-shadow: ${(p) =>
     p.$disconnected
       ? "none"
-      : `0 0 16px ${p.$paused ? "#f59e0b" : "#22c55e"}`};
+      : `0 0 16px ${p.$paused ? "#ef4444" : "#22c55e"}`};
 `;
 
 const StatusRow = styled.div`
@@ -409,7 +409,7 @@ const StatusRow = styled.div`
 
 const ToggleButton = styled.button`
   width: min(90vw, 520px);
-  height: 72px;
+  height: 64px;
   border-radius: 24px;
   border: none;
   background: ${(p) => (p.$paused ? "#22c55e" : "#ef4444")};
