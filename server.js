@@ -37,6 +37,95 @@ app.use(express.json({ limit: "25mb" }));
 // Serve static files from dist
 app.use(express.static(join(__dirname, "dist")));
 
+const controlClients = new Set();
+let controlState = { paused: false };
+
+function broadcastControl(event, data) {
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const client of controlClients) {
+    try { client.write(payload); } catch {}
+  }
+}
+
+app.get("/api/control/events", (req, res) => {
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+
+  res.write(`event: state\ndata: ${JSON.stringify(controlState)}\n\n`);
+  controlClients.add(res);
+
+  const heartbeat = setInterval(() => {
+    try { res.write(`event: ping\ndata: {"t":${Date.now()}}\n\n`); } catch {}
+  }, 25000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    controlClients.delete(res);
+  });
+});
+
+app.get("/api/control/state", (req, res) => {
+  res.json(controlState);
+});
+
+const streamClients = new Set();
+let latestFrame = null;
+
+app.get("/api/stream/events", (req, res) => {
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+
+  if (latestFrame) {
+    res.write(`event: frame\ndata: ${JSON.stringify({ image: latestFrame })}\n\n`);
+  } else {
+    res.write(`event: ping\ndata: {}\n\n`);
+  }
+  streamClients.add(res);
+
+  const heartbeat = setInterval(() => {
+    try { res.write(`event: ping\ndata: {"t":${Date.now()}}\n\n`); } catch {}
+  }, 25000);
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    streamClients.delete(res);
+  });
+});
+
+app.get("/api/stream/viewers", (req, res) => {
+  res.json({ viewers: streamClients.size });
+});
+
+app.post("/api/stream/frame", (req, res) => {
+  const { image } = req.body || {};
+  if (!image) return res.status(400).json({ error: "missing image" });
+  latestFrame = image;
+  const payload = `event: frame\ndata: ${JSON.stringify({ image })}\n\n`;
+  for (const client of streamClients) {
+    try { client.write(payload); } catch {}
+  }
+  res.json({ ok: true, viewers: streamClients.size });
+});
+
+app.post("/api/control/command", (req, res) => {
+  const { action } = req.body || {};
+  if (action === "play") controlState = { ...controlState, paused: false };
+  else if (action === "pause") controlState = { ...controlState, paused: true };
+  else if (action === "toggle") controlState = { ...controlState, paused: !controlState.paused };
+  else return res.status(400).json({ error: "invalid action" });
+
+  broadcastControl("state", controlState);
+  res.json({ ok: true, state: controlState, receivers: controlClients.size });
+});
+
 app.post("/api/describe", async (req, res) => {
   try {
     const { image } = req.body;
