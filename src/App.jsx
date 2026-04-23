@@ -6,6 +6,7 @@ const Page = styled.div`
   inset: 0;
   background: #000;
   overflow: hidden;
+  cursor: none;
 `;
 
 const Video = styled.video`
@@ -13,7 +14,7 @@ const Video = styled.video`
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  filter: ${(p) => (p.$paused ? "brightness(0.3)" : "none")};
+  filter: ${(p) => (p.$paused ? "brightness(0)" : "none")};
   transition: filter 0.2s ease;
 `;
 
@@ -281,6 +282,7 @@ const StreamFrame = styled.div`
 `;
 
 const StreamImg = styled.img`
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -363,11 +365,15 @@ const HaikuText = styled.div`
   flex: 1;
   overflow-y: auto;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.4;
   color: #eee;
   text-align: left;
+
+  @media (min-width: 768px) {
+    font-size: 19px;
+  }
 `;
 
 const StatusDot = styled.div`
@@ -402,11 +408,11 @@ const StatusRow = styled.div`
 `;
 
 const ToggleButton = styled.button`
-  width: 72px;
+  width: min(90vw, 520px);
   height: 72px;
-  border-radius: 50%;
+  border-radius: 24px;
   border: none;
-  background: #2a2a2a;
+  background: ${(p) => (p.$paused ? "#22c55e" : "#ef4444")};
   color: #fff;
   display: flex;
   align-items: center;
@@ -415,7 +421,7 @@ const ToggleButton = styled.button`
   flex-shrink: 0;
   transition: transform 0.08s ease, opacity 0.2s ease;
   &:active {
-    transform: scale(0.96);
+    transform: scale(0.98);
   }
   &:disabled {
     opacity: 0.3;
@@ -424,13 +430,13 @@ const ToggleButton = styled.button`
 `;
 
 const PlayIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
     <path d="M8 5v14l11-7z" />
   </svg>
 );
 
 const PauseIcon = () => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
     <rect x="6" y="5" width="4" height="14" rx="1" />
     <rect x="14" y="5" width="4" height="14" rx="1" />
   </svg>
@@ -519,6 +525,7 @@ function Remote() {
         <HaikuText>{describe?.description || ""}</HaikuText>
       </ResponseCard>
       <ToggleButton
+        $paused={paused}
         onClick={toggle}
         disabled={!homeConnected}
         aria-label={paused ? "Play" : "Pause"}
