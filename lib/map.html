@@ -10,8 +10,11 @@
 <title>Map</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <style>
   :root {
     --bg: #0c0c0c;
@@ -63,6 +66,26 @@
     background: #ffffff; border: 2px solid #0c0c0c;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
   }
+  .marker-cluster {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .marker-cluster div {
+    background: #ffffff;
+    color: #0c0c0c;
+    border-radius: 50%;
+    width: 30px; height: 30px;
+    margin-left: 5px; margin-top: 5px;
+    line-height: 30px;
+  }
+  .marker-cluster span { line-height: 30px; }
+  .marker-cluster-small { background: rgba(255, 255, 255, 0.2); }
+  .marker-cluster-small div { background: #ffffff; }
+  .marker-cluster-medium { background: rgba(255, 255, 255, 0.25); }
+  .marker-cluster-medium div { background: #ececec; }
+  .marker-cluster-large { background: rgba(255, 255, 255, 0.3); }
+  .marker-cluster-large div { background: #d0d0d0; }
 </style>
 </head>
 <body>
@@ -132,8 +155,13 @@
       }
       var latlngs = [];
       var hoverTimer;
+      var cluster = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        maxClusterRadius: 40,
+        spiderfyOnMaxZoom: true
+      });
       points.forEach(function (p) {
-        var marker = L.marker([p.lat, p.lng], { icon: dotIcon, riseOnHover: true }).addTo(map);
+        var marker = L.marker([p.lat, p.lng], { icon: dotIcon, riseOnHover: true });
         marker.bindPopup(popupHtml(p), { closeButton: true, autoPan: false, maxWidth: 280 });
         marker.on("mouseover", function () {
           clearTimeout(hoverTimer);
@@ -150,8 +178,10 @@
             hoverTimer = setTimeout(function () { marker.closePopup(); }, 100);
           });
         });
+        cluster.addLayer(marker);
         latlngs.push([p.lat, p.lng]);
       });
+      map.addLayer(cluster);
       if (latlngs.length === 1) {
         map.setView(latlngs[0], 14);
       } else {
