@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0d10" />
+<title>iBackpack Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<style>
+  :root {
+    --bg: #0c0c0c;
+    --surface: #161616;
+    --border: #2a2a2a;
+    --text: #ececec;
+    --muted: #8a8a8a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); }
+  body {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    -webkit-font-smoothing: antialiased;
+  }
+  #map { position: fixed; inset: 0; background: #111; }
+  .leaflet-container { background: #111; font-family: inherit; }
+  .leaflet-tile { filter: invert(1) grayscale(1) brightness(0.95) contrast(0.9); }
+  .leaflet-popup-content-wrapper {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    overflow: hidden;
+  }
+  .leaflet-popup-content {
+    margin: 0;
+    width: 260px !important;
+  }
+  .leaflet-popup-tip { background: var(--surface); border: 1px solid var(--border); }
+  .leaflet-popup-close-button { color: var(--muted) !important; }
+  .card img {
+    display: block; width: 100%; height: auto;
+    aspect-ratio: 4/3; object-fit: cover; background: #000;
+  }
+  .card .body { padding: 10px 12px 12px; }
+  .card .resp {
+    font-size: 12px; font-weight: 600; line-height: 1.4;
+    color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .card .ts { margin-top: 6px; font-size: 11px; color: var(--muted); }
+  .empty {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 13px; pointer-events: none;
+  }
+  .dot-marker {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #ffffff; border: 2px solid #0c0c0c;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="empty" id="empty" hidden>No geotagged entries yet.</div>
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var key = params.get("key") || "";
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+  function fmtTime(ms) { return new Date(ms).toLocaleString(); }
+
+  var map = L.map("map", { zoomControl: true, worldCopyJump: true }).setView([0, 0], 2);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap"
+  }).addTo(map);
+
+  var dotIcon = L.divIcon({
+    className: "",
+    html: '<div class="dot-marker"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
+  });
+
+  function popupHtml(p) {
+    var imgUrl = "/gallery/image/" + encodeURIComponent(p.image_filename) +
+      "?key=" + encodeURIComponent(key);
+    return (
+      '<div class="card">' +
+        '<img loading="lazy" src="' + esc(imgUrl) + '" alt="" />' +
+        '<div class="body">' +
+          '<div class="resp">' + esc(p.response_text) + "</div>" +
+          '<div class="ts">' + esc(fmtTime(p.created_at)) + "</div>" +
+        "</div>" +
+      "</div>"
+    );
+  }
+
+  fetch("/map/api/points?key=" + encodeURIComponent(key))
+    .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function (data) {
+      var points = (data.points || []).filter(function (p) {
+        return typeof p.lat === "number" && typeof p.lng === "number";
+      });
+      if (points.length === 0) {
+        document.getElementById("empty").hidden = false;
+        return;
+      }
+      var latlngs = [];
+      var hoverTimer;
+      points.forEach(function (p) {
+        var marker = L.marker([p.lat, p.lng], { icon: dotIcon, riseOnHover: true }).addTo(map);
+        marker.bindPopup(popupHtml(p), { closeButton: true, autoPan: false, maxWidth: 280 });
+        marker.on("mouseover", function () {
+          clearTimeout(hoverTimer);
+          marker.openPopup();
+        });
+        marker.on("mouseout", function () {
+          hoverTimer = setTimeout(function () { marker.closePopup(); }, 200);
+        });
+        marker.on("popupopen", function (e) {
+          var el = e.popup.getElement();
+          if (!el) return;
+          el.addEventListener("mouseenter", function () { clearTimeout(hoverTimer); });
+          el.addEventListener("mouseleave", function () {
+            hoverTimer = setTimeout(function () { marker.closePopup(); }, 100);
+          });
+        });
+        latlngs.push([p.lat, p.lng]);
+      });
+      if (latlngs.length === 1) {
+        map.setView(latlngs[0], 14);
+      } else {
+        map.fitBounds(latlngs, { padding: [40, 40] });
+      }
+    })
+    .catch(function (err) {
+      console.error(err);
+      document.getElementById("empty").textContent = "Failed to load points.";
+      document.getElementById("empty").hidden = false;
+    });
+})();
+</script>
+</body>
+</html>

@@ -8,6 +8,7 @@ export default defineConfig({
       "/api": "http://localhost:3132",
       "/admin": "http://localhost:3132",
       "/gallery": "http://localhost:3132",
+      "/map": "http://localhost:3132",
       "/ws": { target: "ws://localhost:3132", ws: true },
     },
   },
