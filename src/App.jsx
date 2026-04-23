@@ -14,23 +14,21 @@ const Video = styled.video`
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  filter: ${(p) => (p.$paused ? "brightness(0)" : "none")};
+  filter: ${(p) => (p.$paused ? "brightness(0)" : "brightness(0.7)")};
   transition: filter 0.2s ease;
 `;
 
 const Overlay = styled.div`
   position: absolute;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 32px 96px;
+  top: 32px;
+  left: 32px;
+  right: 32px;
   color: #fff;
-  font-family: "Playfair Display", "DejaVu Serif", "Liberation Serif", Georgia, serif;
-  font-weight: 500;
-  font-size: 48px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-weight: 600;
+  font-size: 40px;
   line-height: 1.3;
-  text-align: center;
+  text-align: left;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8);
   pointer-events: none;
 `;
