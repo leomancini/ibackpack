@@ -39,6 +39,15 @@ app.use(express.static(join(__dirname, "dist")));
 
 const controlClients = new Set();
 let controlState = { paused: false };
+let homeLastSeen = 0;
+
+function isHomeConnected() {
+  return Date.now() - homeLastSeen < 3000;
+}
+
+function currentControlState() {
+  return { paused: controlState.paused, homeConnected: isHomeConnected() };
+}
 
 function broadcastControl(event, data) {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -46,6 +55,15 @@ function broadcastControl(event, data) {
     try { client.write(payload); } catch {}
   }
 }
+
+let lastBroadcastHomeConnected = false;
+setInterval(() => {
+  const connected = isHomeConnected();
+  if (connected !== lastBroadcastHomeConnected) {
+    lastBroadcastHomeConnected = connected;
+    broadcastControl("state", currentControlState());
+  }
+}, 1000);
 
 app.get("/api/control/events", (req, res) => {
   res.status(200);
@@ -55,7 +73,7 @@ app.get("/api/control/events", (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
 
-  res.write(`event: state\ndata: ${JSON.stringify(controlState)}\n\n`);
+  res.write(`event: state\ndata: ${JSON.stringify(currentControlState())}\n\n`);
   controlClients.add(res);
 
   const heartbeat = setInterval(() => {
@@ -69,51 +87,66 @@ app.get("/api/control/events", (req, res) => {
 });
 
 app.get("/api/control/state", (req, res) => {
-  res.json(controlState);
+  res.json(currentControlState());
 });
 
-const streamClients = new Set();
-let latestFrame = null;
-
-app.get("/api/stream/events", (req, res) => {
-  res.status(200);
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  res.flushHeaders?.();
-
-  if (latestFrame) {
-    res.write(`event: frame\ndata: ${JSON.stringify({ image: latestFrame })}\n\n`);
-  } else {
-    res.write(`event: ping\ndata: {}\n\n`);
+app.post("/api/home/heartbeat", (req, res) => {
+  const wasConnected = isHomeConnected();
+  homeLastSeen = Date.now();
+  if (!wasConnected) {
+    lastBroadcastHomeConnected = true;
+    broadcastControl("state", currentControlState());
   }
-  streamClients.add(res);
+  res.json({ ok: true });
+});
 
-  const heartbeat = setInterval(() => {
-    try { res.write(`event: ping\ndata: {"t":${Date.now()}}\n\n`); } catch {}
-  }, 25000);
+const mjpegClients = new Set();
+let latestFrameBuffer = null;
+const MJPEG_BOUNDARY = "ibackpackframe";
+
+function writeMjpegFrame(client, buffer) {
+  const head = Buffer.from(
+    `--${MJPEG_BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${buffer.length}\r\n\r\n`
+  );
+  try {
+    client.write(head);
+    client.write(buffer);
+    client.write("\r\n");
+  } catch {}
+}
+
+app.get("/api/stream.mjpeg", (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": `multipart/x-mixed-replace; boundary=${MJPEG_BOUNDARY}`,
+    "Cache-Control": "no-cache, no-transform, no-store",
+    Pragma: "no-cache",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no"
+  });
+  mjpegClients.add(res);
+  if (latestFrameBuffer) writeMjpegFrame(res, latestFrameBuffer);
 
   req.on("close", () => {
-    clearInterval(heartbeat);
-    streamClients.delete(res);
+    mjpegClients.delete(res);
   });
 });
 
 app.get("/api/stream/viewers", (req, res) => {
-  res.json({ viewers: streamClients.size });
+  res.json({ viewers: mjpegClients.size });
 });
 
-app.post("/api/stream/frame", (req, res) => {
-  const { image } = req.body || {};
-  if (!image) return res.status(400).json({ error: "missing image" });
-  latestFrame = image;
-  const payload = `event: frame\ndata: ${JSON.stringify({ image })}\n\n`;
-  for (const client of streamClients) {
-    try { client.write(payload); } catch {}
+app.post(
+  "/api/stream/frame",
+  express.raw({ type: "image/jpeg", limit: "5mb" }),
+  (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ error: "missing image" });
+    }
+    latestFrameBuffer = req.body;
+    for (const client of mjpegClients) writeMjpegFrame(client, req.body);
+    res.json({ ok: true, viewers: mjpegClients.size });
   }
-  res.json({ ok: true, viewers: streamClients.size });
-});
+);
 
 app.post("/api/control/command", (req, res) => {
   const { action } = req.body || {};
@@ -122,8 +155,40 @@ app.post("/api/control/command", (req, res) => {
   else if (action === "toggle") controlState = { ...controlState, paused: !controlState.paused };
   else return res.status(400).json({ error: "invalid action" });
 
-  broadcastControl("state", controlState);
-  res.json({ ok: true, state: controlState, receivers: controlClients.size });
+  broadcastControl("state", currentControlState());
+  res.json({ ok: true, state: currentControlState(), receivers: controlClients.size });
+});
+
+const describeClients = new Set();
+let latestDescribe = null;
+
+function broadcastDescribe(entry) {
+  const payload = `event: describe\ndata: ${JSON.stringify(entry)}\n\n`;
+  for (const client of describeClients) {
+    try { client.write(payload); } catch {}
+  }
+}
+
+app.get("/api/describe/events", (req, res) => {
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+  if (latestDescribe) {
+    res.write(`event: describe\ndata: ${JSON.stringify(latestDescribe)}\n\n`);
+  } else {
+    res.write(`event: ping\ndata: {}\n\n`);
+  }
+  describeClients.add(res);
+  const heartbeat = setInterval(() => {
+    try { res.write(`event: ping\ndata: {"t":${Date.now()}}\n\n`); } catch {}
+  }, 25000);
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    describeClients.delete(res);
+  });
 });
 
 app.post("/api/describe", async (req, res) => {
@@ -164,6 +229,9 @@ app.post("/api/describe", async (req, res) => {
         model
       })
       .catch((e) => console.error("[storage] saveEntry failed:", e));
+
+    latestDescribe = { image, description: text, model, t: Date.now() };
+    broadcastDescribe(latestDescribe);
 
     res.json({ description: text });
   } catch (error) {

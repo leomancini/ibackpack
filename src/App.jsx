@@ -60,18 +60,40 @@ const PausedBadge = styled.div`
 `;
 
 function useControlState() {
-  const [state, setState] = useState({ paused: false, loaded: false });
+  const [state, setState] = useState({
+    paused: false,
+    homeConnected: false,
+    loaded: false,
+  });
   useEffect(() => {
     const es = new EventSource("/api/control/events");
     es.addEventListener("state", (e) => {
       try {
         const data = JSON.parse(e.data);
-        setState({ paused: !!data.paused, loaded: true });
+        setState({
+          paused: !!data.paused,
+          homeConnected: !!data.homeConnected,
+          loaded: true,
+        });
       } catch {}
     });
     return () => es.close();
   }, []);
   return state;
+}
+
+function useDescribe() {
+  const [entry, setEntry] = useState(null);
+  useEffect(() => {
+    const es = new EventSource("/api/describe/events");
+    es.addEventListener("describe", (e) => {
+      try {
+        setEntry(JSON.parse(e.data));
+      } catch {}
+    });
+    return () => es.close();
+  }, []);
+  return entry;
 }
 
 function Home() {
@@ -82,6 +104,15 @@ function Home() {
   const [error, setError] = useState(null);
   const [description, setDescription] = useState("");
   const { paused, loaded } = useControlState();
+
+  useEffect(() => {
+    const send = () => {
+      fetch("/api/home/heartbeat", { method: "POST" }).catch(() => {});
+    };
+    send();
+    const id = setInterval(send, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     pausedRef.current = paused;
@@ -176,23 +207,27 @@ function Home() {
         return;
       }
 
-      const w = 320;
-      const h = Math.round((video.videoHeight / video.videoWidth) * w) || 240;
+      const w = 480;
+      const h = Math.round((video.videoHeight / video.videoWidth) * w) || 360;
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, w, h);
-      const image = canvas.toDataURL("image/jpeg", 0.5);
 
-      try {
-        await fetch("/api/stream/frame", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image }),
-        });
-      } catch {}
+      const blob = await new Promise((r) =>
+        canvas.toBlob(r, "image/jpeg", 0.6)
+      );
+      if (blob) {
+        try {
+          await fetch("/api/stream/frame", {
+            method: "POST",
+            headers: { "Content-Type": "image/jpeg" },
+            body: blob,
+          });
+        } catch {}
+      }
 
-      if (!cancelled) timer = setTimeout(push, 166);
+      if (!cancelled) timer = setTimeout(push, 80);
     };
 
     timer = setTimeout(push, 1500);
@@ -250,12 +285,50 @@ const StreamImg = styled.img`
   transform: scaleX(-1);
 `;
 
+const HaikuCard = styled.div`
+  width: min(90vw, 520px);
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #1c1c1c;
+  align-items: center;
+`;
+
+const HaikuThumb = styled.img`
+  width: 80px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  transform: scaleX(-1);
+  background: #000;
+`;
+
+const HaikuPlaceholder = styled.div`
+  width: 80px;
+  height: 60px;
+  border-radius: 6px;
+  background: #000;
+`;
+
+const HaikuText = styled.div`
+  flex: 1;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 18px;
+  line-height: 1.3;
+  color: #eee;
+`;
+
 const StatusDot = styled.div`
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: ${(p) => (p.$paused ? "#f59e0b" : "#22c55e")};
-  box-shadow: 0 0 16px ${(p) => (p.$paused ? "#f59e0b" : "#22c55e")};
+  background: ${(p) =>
+    p.$disconnected ? "#555" : p.$paused ? "#f59e0b" : "#22c55e"};
+  box-shadow: ${(p) =>
+    p.$disconnected
+      ? "none"
+      : `0 0 16px ${p.$paused ? "#f59e0b" : "#22c55e"}`};
 `;
 
 const StatusRow = styled.div`
@@ -280,34 +353,23 @@ const ToggleButton = styled.button`
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: transform 0.08s ease;
+  transition: transform 0.08s ease, opacity 0.2s ease;
   &:active {
     transform: scale(0.96);
   }
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
 `;
 
-function useStreamFrame() {
-  const [frame, setFrame] = useState(null);
-  useEffect(() => {
-    const es = new EventSource("/api/stream/events");
-    es.addEventListener("frame", (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.image) setFrame(data.image);
-      } catch {}
-    });
-    return () => es.close();
-  }, []);
-  return frame;
-}
-
 function Remote() {
-  const { paused } = useControlState();
-  const frame = useStreamFrame();
+  const { paused, homeConnected } = useControlState();
+  const describe = useDescribe();
   const [busy, setBusy] = useState(false);
 
   const toggle = async () => {
-    if (busy) return;
+    if (busy || !homeConnected) return;
     setBusy(true);
     try {
       await fetch("/api/control/command", {
@@ -320,16 +382,37 @@ function Remote() {
     }
   };
 
+  let statusLabel;
+  if (!homeConnected) statusLabel = "Not connected";
+  else if (paused) statusLabel = "Paused";
+  else statusLabel = "Live";
+
   return (
     <RemotePage>
       <StreamFrame>
-        {frame ? <StreamImg src={frame} alt="Live feed" /> : "Waiting for feed"}
+        {homeConnected ? (
+          <StreamImg src="/api/stream.mjpeg" alt="Live feed" />
+        ) : (
+          "Not connected"
+        )}
       </StreamFrame>
+      <HaikuCard>
+        {describe?.image ? (
+          <HaikuThumb src={describe.image} alt="" />
+        ) : (
+          <HaikuPlaceholder />
+        )}
+        <HaikuText>{describe?.description || "Waiting for description…"}</HaikuText>
+      </HaikuCard>
       <StatusRow>
-        <StatusDot $paused={paused} />
-        {paused ? "Paused" : "Live"}
+        <StatusDot $paused={paused} $disconnected={!homeConnected} />
+        {statusLabel}
       </StatusRow>
-      <ToggleButton $paused={paused} onClick={toggle}>
+      <ToggleButton
+        $paused={paused}
+        onClick={toggle}
+        disabled={!homeConnected}
+      >
         {paused ? "Play" : "Pause"}
       </ToggleButton>
     </RemotePage>
