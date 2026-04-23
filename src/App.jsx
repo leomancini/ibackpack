@@ -450,6 +450,14 @@ const StatusDot = styled.div`
     p.$disconnected
       ? "none"
       : `0 0 16px ${p.$paused ? "#ef4444" : "#22c55e"}`};
+  animation: ${(p) =>
+    !p.$disconnected && !p.$paused
+      ? "livepulse 1.4s ease-in-out infinite"
+      : "none"};
+  @keyframes livepulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
 `;
 
 const SendBadge = styled.div`
