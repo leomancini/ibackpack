@@ -74,11 +74,11 @@
     color: var(--muted);
     white-space: nowrap;
   }
+  .footer .info { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .footer .geo { font-variant-numeric: tabular-nums; }
-  .footer .geo.empty-slot { visibility: hidden; }
-  .footer .geo.empty-slot::after { content: "—"; }
   .footer .geo a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--border); }
   .footer .geo a:hover { color: var(--text); }
+  .footer .sep[hidden] { display: none; }
   .footer .pos { font-variant-numeric: tabular-nums; }
   .empty {
     position: fixed; inset: 0;
@@ -95,8 +95,11 @@
     <div class="body">
       <div class="response" id="response"></div>
       <div class="footer">
-        <span class="ts" id="ts"></span>
-        <span class="geo" id="geo"><a id="geo-link" target="_blank" rel="noopener"></a></span>
+        <span class="info">
+          <span class="ts" id="ts"></span>
+          <span class="sep" id="geo-sep" hidden> · </span>
+          <span class="geo" id="geo"><a id="geo-link" target="_blank" rel="noopener"></a></span>
+        </span>
         <span class="pos" id="pos"></span>
       </div>
     </div>
@@ -127,6 +130,7 @@
   var responseEl = document.getElementById("response");
   var tsEl = document.getElementById("ts");
   var geoEl = document.getElementById("geo");
+  var geoSepEl = document.getElementById("geo-sep");
   var geoLinkEl = document.getElementById("geo-link");
   var posEl = document.getElementById("pos");
   var emptyEl = document.getElementById("empty");
@@ -136,11 +140,16 @@
       "?key=" + encodeURIComponent(key);
   }
 
-  var dtFmt = new Intl.DateTimeFormat(undefined, {
-    year: "numeric", month: "2-digit", day: "2-digit",
+  var dateFmt = new Intl.DateTimeFormat(undefined, {
+    year: "numeric", month: "2-digit", day: "2-digit"
+  });
+  var timeFmt = new Intl.DateTimeFormat(undefined, {
     hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true
   });
-  function fmtTime(ms) { return dtFmt.format(new Date(ms)); }
+  function fmtTime(ms) {
+    var d = new Date(ms);
+    return dateFmt.format(d) + " · " + timeFmt.format(d);
+  }
 
   function render() {
     var e = entries[idx];
@@ -153,11 +162,13 @@
       var coords = e.lat.toFixed(5) + ", " + e.lng.toFixed(5);
       geoLinkEl.textContent = coords;
       geoLinkEl.href = "https://www.google.com/maps?q=" + e.lat + "," + e.lng;
-      geoEl.classList.remove("empty-slot");
+      geoSepEl.hidden = false;
+      geoEl.hidden = false;
     } else {
       geoLinkEl.textContent = "";
       geoLinkEl.removeAttribute("href");
-      geoEl.classList.add("empty-slot");
+      geoSepEl.hidden = true;
+      geoEl.hidden = true;
     }
     var currentNum = String(idx + 1).padStart(5, "0");
     posEl.textContent = currentNum;

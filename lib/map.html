@@ -78,11 +78,16 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
   }
-  var dtFmt = new Intl.DateTimeFormat(undefined, {
-    year: "numeric", month: "2-digit", day: "2-digit",
+  var dateFmt = new Intl.DateTimeFormat(undefined, {
+    year: "numeric", month: "2-digit", day: "2-digit"
+  });
+  var timeFmt = new Intl.DateTimeFormat(undefined, {
     hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true
   });
-  function fmtTime(ms) { return dtFmt.format(new Date(ms)); }
+  function fmtTime(ms) {
+    var d = new Date(ms);
+    return dateFmt.format(d) + " · " + timeFmt.format(d);
+  }
 
   var map = L.map("map", { zoomControl: true, worldCopyJump: true }).setView([0, 0], 2);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {

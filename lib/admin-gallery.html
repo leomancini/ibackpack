@@ -137,11 +137,16 @@
     return (n / 1024 / 1024 / 1024).toFixed(2) + " GB";
   }
 
-  var dtFmt = new Intl.DateTimeFormat(undefined, {
-    year: "numeric", month: "2-digit", day: "2-digit",
+  var dateFmt = new Intl.DateTimeFormat(undefined, {
+    year: "numeric", month: "2-digit", day: "2-digit"
+  });
+  var timeFmt = new Intl.DateTimeFormat(undefined, {
     hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true
   });
-  function fmtTime(ms) { return dtFmt.format(new Date(ms)); }
+  function fmtTime(ms) {
+    var d = new Date(ms);
+    return dateFmt.format(d) + " · " + timeFmt.format(d);
+  }
 
   function esc(s) {
     return String(s == null ? "" : s)
