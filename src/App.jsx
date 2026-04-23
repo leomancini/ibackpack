@@ -345,7 +345,7 @@ const StreamFrame = styled.div`
   position: relative;
   width: min(90vw, 520px);
   aspect-ratio: 4 / 3;
-  background: #000;
+  background: #141414;
   border-radius: 24px;
   overflow: hidden;
   display: flex;
@@ -381,20 +381,20 @@ const HaikuThumb = styled.img`
   display: block;
   border-radius: 24px;
   transform: scaleX(-1);
-  background: #000;
+  background: #141414;
 `;
 
 const HaikuPlaceholder = styled.div`
   width: 100%;
   aspect-ratio: 4 / 3;
   border-radius: 24px;
-  background: #000;
+  background: #141414;
 `;
 
 const LocationCard = styled.div`
   flex: 1;
   min-width: 0;
-  background: #1c1c1c;
+  background: #141414;
   padding: 14px;
   border-radius: 24px;
   display: flex;
@@ -429,7 +429,7 @@ const ResponseCard = styled.div`
   width: min(90vw, 520px);
   flex: 1 1 0;
   min-height: 0;
-  background: #1c1c1c;
+  background: #141414;
   padding: 16px;
   border-radius: 24px;
   box-sizing: border-box;
