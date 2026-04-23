@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n vite,server -c cyan,magenta \"vite\" \"nodemon -e js,json,html server.js\"",
+    "dev:vite": "vite",
+    "dev:server": "nodemon -e js,json,html server.js",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js"
@@ -22,6 +24,8 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.14",
     "vite": "^6.0.0"
   }
 }

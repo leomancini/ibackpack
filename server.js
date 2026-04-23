@@ -29,10 +29,14 @@ const storage = createStorage({
   dir: join(__dirname, "storage", "images")
 });
 
-const galleryHtml = fs.readFileSync(
-  join(__dirname, "lib", "admin-gallery.html"),
-  "utf8"
-);
+const galleryHtmlPath = join(__dirname, "lib", "admin-gallery.html");
+let galleryHtmlCache = fs.readFileSync(galleryHtmlPath, "utf8");
+function getGalleryHtml() {
+  if (process.env.NODE_ENV !== "production") {
+    return fs.readFileSync(galleryHtmlPath, "utf8");
+  }
+  return galleryHtmlCache;
+}
 
 app.use(express.json({ limit: "25mb" }));
 
@@ -312,11 +316,11 @@ function requireAdminKey(req, res, next) {
   next();
 }
 
-app.get("/admin/gallery", requireAdminKey, (req, res) => {
-  res.type("html").send(galleryHtml);
+app.get("/gallery", requireAdminKey, (req, res) => {
+  res.type("html").send(getGalleryHtml());
 });
 
-app.get("/admin/gallery/api/entries", requireAdminKey, (req, res) => {
+app.get("/gallery/api/entries", requireAdminKey, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit, 10) || 200, 500);
   const offset = parseInt(req.query.offset, 10) || 0;
   res.json({
@@ -326,7 +330,7 @@ app.get("/admin/gallery/api/entries", requireAdminKey, (req, res) => {
   });
 });
 
-app.get("/admin/gallery/image/:filename", requireAdminKey, (req, res) => {
+app.get("/gallery/image/:filename", requireAdminKey, (req, res) => {
   const path = storage.getImagePath(req.params.filename);
   if (!path || !fs.existsSync(path)) {
     return res.status(404).type("text/plain").send("Not found");
@@ -336,7 +340,7 @@ app.get("/admin/gallery/image/:filename", requireAdminKey, (req, res) => {
   fs.createReadStream(path).pipe(res);
 });
 
-app.get("/admin/gallery/events", requireAdminKey, (req, res) => {
+app.get("/gallery/events", requireAdminKey, (req, res) => {
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
