@@ -342,6 +342,7 @@ const StreamFrame = styled.div`
   background: #141414;
   border-radius: 24px;
   overflow: hidden;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
   display: flex;
   align-items: center;
   justify-content: center;
