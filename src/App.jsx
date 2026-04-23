@@ -486,10 +486,8 @@ function Remote() {
   return (
     <RemotePage>
       <StreamFrame>
-        {homeConnected ? (
+        {homeConnected && (
           <StreamImg src="/api/stream.mjpeg" alt="Live feed" $paused={paused} />
-        ) : (
-          "Not connected"
         )}
         <StatusRow>
           <StatusDot $paused={paused} $disconnected={!homeConnected} />
@@ -518,7 +516,7 @@ function Remote() {
         </LocationCard>
       </PhotoRow>
       <ResponseCard>
-        <HaikuText>{describe?.description || "Waiting for description…"}</HaikuText>
+        <HaikuText>{describe?.description || ""}</HaikuText>
       </ResponseCard>
       <ToggleButton
         onClick={toggle}
