@@ -4,7 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0b0d10" />
-<title>iBackpack Gallery</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<title>Gallery</title>
 <style>
   :root {
     --bg: #0c0c0c;
@@ -60,7 +63,13 @@
     aspect-ratio: 4/3;
     object-fit: cover;
   }
-  .body { padding: 18px 20px 20px; }
+  .body {
+    padding: 18px 20px 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .footer { margin-top: auto; }
   .response {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
     font-weight: 600;
@@ -128,10 +137,11 @@
     return (n / 1024 / 1024 / 1024).toFixed(2) + " GB";
   }
 
-  function fmtTime(ms) {
-    var d = new Date(ms);
-    return d.toLocaleString();
-  }
+  var dtFmt = new Intl.DateTimeFormat(undefined, {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true
+  });
+  function fmtTime(ms) { return dtFmt.format(new Date(ms)); }
 
   function esc(s) {
     return String(s == null ? "" : s)
@@ -156,8 +166,10 @@
       '<img loading="lazy" src="' + imgUrl + '" alt="" />' +
       '<div class="body">' +
         '<div class="response">' + esc(e.response_text) + "</div>" +
-        '<div class="ts">' + esc(fmtTime(e.created_at)) + "</div>" +
-        geoHtml +
+        '<div class="footer">' +
+          '<div class="ts">' + esc(fmtTime(e.created_at)) + "</div>" +
+          geoHtml +
+        "</div>" +
       "</div>";
     return card;
   }
@@ -186,7 +198,7 @@
   }
 
   function updateStorage(total, max) {
-    document.title = "Gallery — " + fmtBytes(total) + " / " + fmtBytes(max);
+    document.title = "Gallery – " + fmtBytes(total) + " / " + fmtBytes(max);
   }
 
   function setStatus(s) {

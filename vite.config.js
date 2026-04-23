@@ -9,6 +9,7 @@ export default defineConfig({
       "/admin": "http://localhost:3132",
       "/gallery": "http://localhost:3132",
       "/map": "http://localhost:3132",
+      "/slideshow": "http://localhost:3132",
       "/ws": { target: "ws://localhost:3132", ws: true },
     },
   },

@@ -47,6 +47,15 @@ function getMapHtml() {
   return mapHtmlCache;
 }
 
+const slideshowHtmlPath = join(__dirname, "lib", "slideshow.html");
+let slideshowHtmlCache = fs.readFileSync(slideshowHtmlPath, "utf8");
+function getSlideshowHtml() {
+  if (process.env.NODE_ENV !== "production") {
+    return fs.readFileSync(slideshowHtmlPath, "utf8");
+  }
+  return slideshowHtmlCache;
+}
+
 app.use(express.json({ limit: "25mb" }));
 
 // Serve static files from dist
@@ -331,6 +340,10 @@ app.get("/gallery", requireAdminKey, (req, res) => {
 
 app.get("/map", requireAdminKey, (req, res) => {
   res.type("html").send(getMapHtml());
+});
+
+app.get("/slideshow", requireAdminKey, (req, res) => {
+  res.type("html").send(getSlideshowHtml());
 });
 
 app.get("/map/api/points", requireAdminKey, (req, res) => {
