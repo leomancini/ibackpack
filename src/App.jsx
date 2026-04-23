@@ -7,9 +7,6 @@ const Page = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
   background: #000;
   overflow: hidden;
   cursor: none;
@@ -324,9 +321,6 @@ const RemotePage = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -540,6 +534,10 @@ const LevelRow = styled.div`
 const ToggleButton = styled.button`
   width: min(90vw, 520px);
   height: 64px;
+  margin-bottom: 20px;
+  @media (display-mode: standalone) {
+    margin-bottom: 0;
+  }
   border-radius: 24px;
   border: none;
   background: ${(p) => (p.$paused ? "#22c55e" : "#ef4444")};
