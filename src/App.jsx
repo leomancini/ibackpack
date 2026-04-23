@@ -3,7 +3,13 @@ import styled from "styled-components";
 
 const Page = styled.div`
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   background: #000;
   overflow: hidden;
   cursor: none;
@@ -314,7 +320,13 @@ function Home() {
 
 const RemotePage = styled.div`
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -327,6 +339,7 @@ const RemotePage = styled.div`
     calc(20px + env(safe-area-inset-bottom))
     calc(20px + env(safe-area-inset-left));
   box-sizing: border-box;
+  overflow: hidden;
 `;
 
 const StreamFrame = styled.div`
