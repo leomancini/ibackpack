@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": "http://localhost:3132",
+      "/admin": "http://localhost:3132",
     },
   },
 });

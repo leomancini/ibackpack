@@ -90,6 +90,17 @@ app.get("/api/control/state", (req, res) => {
   res.json(currentControlState());
 });
 
+let latestLocation = null;
+
+app.post("/api/location", (req, res) => {
+  const { lat, lng } = req.body || {};
+  if (typeof lat !== "number" || typeof lng !== "number") {
+    return res.status(400).json({ error: "lat and lng required as numbers" });
+  }
+  latestLocation = { lat, lng, t: Date.now() };
+  res.json({ ok: true });
+});
+
 app.post("/api/home/heartbeat", (req, res) => {
   const wasConnected = isHomeConnected();
   homeLastSeen = Date.now();
@@ -221,16 +232,26 @@ app.post("/api/describe", async (req, res) => {
     const raw = message.content.find((b) => b.type === "text")?.text ?? "";
     const text = raw.replace(/^[#\s*>`-]+/, "").trim();
 
+    const loc = latestLocation;
     storage
       .saveEntry({
         imageBuffer: Buffer.from(data, "base64"),
         response: text,
         prompt,
-        model
+        model,
+        lat: loc?.lat ?? null,
+        lng: loc?.lng ?? null
       })
       .catch((e) => console.error("[storage] saveEntry failed:", e));
 
-    latestDescribe = { image, description: text, model, t: Date.now() };
+    latestDescribe = {
+      image,
+      description: text,
+      model,
+      t: Date.now(),
+      lat: loc?.lat ?? null,
+      lng: loc?.lng ?? null
+    };
     broadcastDescribe(latestDescribe);
 
     res.json({ description: text });

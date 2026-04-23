@@ -13,6 +13,8 @@ const Video = styled.video`
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
+  filter: ${(p) => (p.$paused ? "brightness(0.3)" : "none")};
+  transition: filter 0.2s ease;
 `;
 
 const Overlay = styled.div`
@@ -239,11 +241,10 @@ function Home() {
 
   return (
     <Page>
-      <Video ref={videoRef} playsInline muted />
+      <Video ref={videoRef} playsInline muted $paused={paused} />
       <canvas ref={canvasRef} style={{ display: "none" }} />
       <canvas ref={streamCanvasRef} style={{ display: "none" }} />
-      {description && <Overlay>{description}</Overlay>}
-      {paused && <PausedBadge>Paused</PausedBadge>}
+      {!paused && description && <Overlay>{description}</Overlay>}
       {error && <Message>{error}</Message>}
     </Page>
   );
@@ -254,20 +255,21 @@ const RemotePage = styled.div`
   inset: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   background: #111;
   color: #fff;
   font-family: system-ui, -apple-system, sans-serif;
-  padding: 24px;
+  padding: 20px;
+  box-sizing: border-box;
 `;
 
 const StreamFrame = styled.div`
+  position: relative;
   width: min(90vw, 520px);
   aspect-ratio: 4 / 3;
   background: #000;
-  border-radius: 16px;
+  border-radius: 24px;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -283,40 +285,89 @@ const StreamImg = styled.img`
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
+  filter: ${(p) => (p.$paused ? "brightness(0.3)" : "none")};
+  transition: filter 0.2s ease;
 `;
 
-const HaikuCard = styled.div`
+const PhotoRow = styled.div`
   width: min(90vw, 520px);
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  background: #1c1c1c;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  flex-shrink: 0;
 `;
 
 const HaikuThumb = styled.img`
-  width: 80px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 6px;
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 24px;
   transform: scaleX(-1);
   background: #000;
 `;
 
 const HaikuPlaceholder = styled.div`
-  width: 80px;
-  height: 60px;
-  border-radius: 6px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 24px;
   background: #000;
+`;
+
+const LocationCard = styled.div`
+  flex: 1;
+  min-width: 0;
+  background: #1c1c1c;
+  padding: 14px;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+
+  @media (min-width: 768px) {
+    justify-content: flex-start;
+    gap: 12px;
+  }
+`;
+
+const LocationLabel = styled.div`
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 6px;
+`;
+
+const LocationValue = styled.div`
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 18px;
+  color: #eee;
+  font-variant-numeric: tabular-nums;
+`;
+
+const ResponseCard = styled.div`
+  width: min(90vw, 520px);
+  flex: 1 1 0;
+  min-height: 0;
+  background: #1c1c1c;
+  padding: 16px;
+  border-radius: 24px;
+  box-sizing: border-box;
+  display: flex;
+  overflow: hidden;
 `;
 
 const HaikuText = styled.div`
   flex: 1;
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: 18px;
-  line-height: 1.3;
+  overflow-y: auto;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.4;
   color: #eee;
+  text-align: left;
 `;
 
 const StatusDot = styled.div`
@@ -332,27 +383,36 @@ const StatusDot = styled.div`
 `;
 
 const StatusRow = styled.div`
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 18px;
+  gap: 10px;
+  padding: 6px 14px 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  font-size: 13px;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #aaa;
+  color: #fff;
 `;
 
 const ToggleButton = styled.button`
-  width: min(80vw, 280px);
-  height: min(80vw, 280px);
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   border: none;
-  background: ${(p) => (p.$paused ? "#22c55e" : "#f59e0b")};
-  color: #000;
-  font-size: 32px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  background: #2a2a2a;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
   transition: transform 0.08s ease, opacity 0.2s ease;
   &:active {
     transform: scale(0.96);
@@ -363,9 +423,45 @@ const ToggleButton = styled.button`
   }
 `;
 
+const PlayIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M8 5v14l11-7z" />
+  </svg>
+);
+
+const PauseIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+    <rect x="6" y="5" width="4" height="14" rx="1" />
+    <rect x="14" y="5" width="4" height="14" rx="1" />
+  </svg>
+);
+
+function useGeolocation() {
+  const [location, setLocation] = useState(null);
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setLocation(loc);
+        fetch("/api/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(loc),
+        }).catch(() => {});
+      },
+      () => {},
+      { enableHighAccuracy: false, maximumAge: 10000, timeout: 30000 }
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, []);
+  return location;
+}
+
 function Remote() {
   const { paused, homeConnected } = useControlState();
   const describe = useDescribe();
+  const location = useGeolocation();
   const [busy, setBusy] = useState(false);
 
   const toggle = async () => {
@@ -391,29 +487,45 @@ function Remote() {
     <RemotePage>
       <StreamFrame>
         {homeConnected ? (
-          <StreamImg src="/api/stream.mjpeg" alt="Live feed" />
+          <StreamImg src="/api/stream.mjpeg" alt="Live feed" $paused={paused} />
         ) : (
           "Not connected"
         )}
+        <StatusRow>
+          <StatusDot $paused={paused} $disconnected={!homeConnected} />
+          {statusLabel}
+        </StatusRow>
       </StreamFrame>
-      <HaikuCard>
+      <PhotoRow>
         {describe?.image ? (
           <HaikuThumb src={describe.image} alt="" />
         ) : (
           <HaikuPlaceholder />
         )}
+        <LocationCard>
+          <div>
+            <LocationLabel>Lat</LocationLabel>
+            <LocationValue>
+              {location ? location.lat.toFixed(5) : "—"}
+            </LocationValue>
+          </div>
+          <div>
+            <LocationLabel>Lng</LocationLabel>
+            <LocationValue>
+              {location ? location.lng.toFixed(5) : "—"}
+            </LocationValue>
+          </div>
+        </LocationCard>
+      </PhotoRow>
+      <ResponseCard>
         <HaikuText>{describe?.description || "Waiting for description…"}</HaikuText>
-      </HaikuCard>
-      <StatusRow>
-        <StatusDot $paused={paused} $disconnected={!homeConnected} />
-        {statusLabel}
-      </StatusRow>
+      </ResponseCard>
       <ToggleButton
-        $paused={paused}
         onClick={toggle}
         disabled={!homeConnected}
+        aria-label={paused ? "Play" : "Pause"}
       >
-        {paused ? "Play" : "Pause"}
+        {paused ? <PlayIcon /> : <PauseIcon />}
       </ToggleButton>
     </RemotePage>
   );
