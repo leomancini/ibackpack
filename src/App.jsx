@@ -163,6 +163,13 @@ function useCountdown(targetMs) {
   return remaining;
 }
 
+function timeoutSignal(ms) {
+  if (AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
 function Home() {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -173,8 +180,15 @@ function Home() {
   const { paused, brightness, loaded } = useControlState();
 
   useEffect(() => {
+    let inFlight = false;
     const send = () => {
-      fetch("/api/home/heartbeat", { method: "POST" }).catch(() => {});
+      if (inFlight) return;
+      inFlight = true;
+      fetch("/api/home/heartbeat", { method: "POST", signal: timeoutSignal(3000) })
+        .catch(() => {})
+        .finally(() => {
+          inFlight = false;
+        });
     };
     send();
     const id = setInterval(send, 1000);
@@ -192,17 +206,48 @@ function Home() {
 
   useEffect(() => {
     let stream;
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: false })
-      .then((s) => {
-        stream = s;
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
-        }
-      })
-      .catch((err) => setError(err.message || "Unable to access camera"));
+    let cancelled = false;
+    let retryTimer;
+
+    const start = (isRestart) => {
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: false })
+        .then((s) => {
+          if (cancelled) {
+            s.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          stream = s;
+          setError(null);
+          s.getVideoTracks().forEach((t) => t.addEventListener("ended", restart));
+          if (videoRef.current) {
+            videoRef.current.srcObject = s;
+            if (isRestart && !pausedRef.current) {
+              videoRef.current.play().catch(() => {});
+            }
+          }
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setError(err.message || "Unable to access camera");
+          if (isRestart) retryTimer = setTimeout(() => start(true), 3000);
+        });
+    };
+
+    // Camera track ended (unplugged, device reset): re-acquire it.
+    const restart = () => {
+      if (cancelled) return;
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      stream = null;
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => start(true), 1000);
+    };
+
+    start(false);
 
     return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
       }
@@ -239,6 +284,7 @@ function Home() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image }),
+          signal: timeoutSignal(90000),
         });
         const json = await res.json();
         if (!cancelled && json.description) {
@@ -290,6 +336,7 @@ function Home() {
             method: "POST",
             headers: { "Content-Type": "image/jpeg" },
             body: blob,
+            signal: timeoutSignal(5000),
           });
         } catch {}
       }

@@ -15,7 +15,7 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const port = 3132;
-const anthropic = new Anthropic();
+const anthropic = new Anthropic({ timeout: 30_000, maxRetries: 1 });
 
 const ADMIN_KEY = process.env.ADMIN_KEY || "";
 
@@ -144,8 +144,23 @@ app.post("/api/home/heartbeat", (req, res) => {
 const mjpegClients = new Set();
 let latestFrameBuffer = null;
 const MJPEG_BOUNDARY = "ibackpackframe";
+const MJPEG_MAX_BUFFERED = 512 * 1024;
+const MJPEG_STALL_MS = 10000;
 
 function writeMjpegFrame(client, buffer) {
+  // Backpressure: skip frames for a viewer that isn't draining, and drop
+  // one that has stayed backed up for MJPEG_STALL_MS.
+  if (client.writableLength > MJPEG_MAX_BUFFERED) {
+    const now = Date.now();
+    if (!client.mjpegStalledSince) {
+      client.mjpegStalledSince = now;
+    } else if (now - client.mjpegStalledSince > MJPEG_STALL_MS) {
+      mjpegClients.delete(client);
+      client.destroy();
+    }
+    return;
+  }
+  client.mjpegStalledSince = 0;
   const head = Buffer.from(
     `--${MJPEG_BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${buffer.length}\r\n\r\n`
   );
@@ -308,7 +323,7 @@ app.post("/api/describe", async (req, res) => {
 });
 
 // API endpoint for SQLite queries
-app.post("/api/query", (req, res) => {
+app.post("/api/query", requireAdminKey, (req, res) => {
   try {
     const { sql, params = [] } = req.body;
     const stmt = db.prepare(sql);

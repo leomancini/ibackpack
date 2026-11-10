@@ -159,6 +159,7 @@
     var card = document.createElement("article");
     card.className = "card";
     card.dataset.id = e.id;
+    card.dataset.createdAt = e.created_at;
     var imgUrl = "/gallery/image/" + encodeURIComponent(e.image_filename) +
       "?key=" + encodeURIComponent(key);
     var geoHtml = "";
@@ -185,10 +186,26 @@
     var card = renderCard(e);
     if (prepend) {
       grid.insertBefore(card, grid.firstChild);
+      trimOldest();
     } else {
       grid.appendChild(card);
     }
     updateEmpty();
+  }
+
+  // Keep the DOM bounded while the page sits at the top receiving live items.
+  // Trimmed entries are re-fetched by the normal paging if the user scrolls down.
+  var MAX_CARDS = 300;
+  function trimOldest() {
+    if (grid.children.length <= MAX_CARDS) return;
+    if ((window.scrollY || 0) > window.innerHeight) return;
+    while (grid.children.length > MAX_CARDS) {
+      var last = grid.lastElementChild;
+      seen.delete(last.dataset.id);
+      last.remove();
+    }
+    oldestLoaded = Number(grid.lastElementChild.dataset.createdAt);
+    exhausted = false;
   }
 
   function removeEntry(id) {
